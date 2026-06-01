@@ -1,0 +1,4 @@
+[functions.simulate-business]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/simulate-business/index.ts"

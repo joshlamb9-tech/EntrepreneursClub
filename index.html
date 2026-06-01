@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Idea Simulator — Mowden Entrepreneurs Club</title>
+  <meta name="description" content="Submit your business idea and find out what 1,000 customers really think. Get a full investor report with a valuation.">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="logo-bar">
+      <span class="logo-icon">💡</span>
+      <h1>Entrepreneurs <span class="gold-accent">Club</span></h1>
+    </div>
+    <p class="tagline">Business Idea Simulator — Mowden Hall School</p>
+  </header>
+
+  <main class="container">
+
+    <!-- ═══════════════════════════════════════════
+         FORM SECTION
+    ════════════════════════════════════════════ -->
+    <div id="form-section">
+
+      <div class="form-intro">
+        <h2>Can your idea make money?</h2>
+        <p>Fill in the form below and we'll simulate how 1,000 real UK customers would respond. Takes under 3 minutes.</p>
+      </div>
+
+      <form class="idea-form" id="idea-form" novalidate>
+        <div class="form-grid">
+
+          <!-- Business Name -->
+          <div class="form-field">
+            <label for="business_name">What's your business called?</label>
+            <input
+              type="text"
+              id="business_name"
+              name="business_name"
+              required
+              maxlength="60"
+              placeholder="e.g. Paws &amp; Claws Pet Spa"
+              autocomplete="off"
+            >
+            <span class="helper">Make it memorable — this is what customers will remember.</span>
+          </div>
+
+          <!-- Who It's For -->
+          <div class="form-field">
+            <label for="who_its_for">Who are your customers?</label>
+            <input
+              type="text"
+              id="who_its_for"
+              name="who_its_for"
+              required
+              maxlength="150"
+              placeholder="e.g. Dog owners who are busy or don't have a car"
+              autocomplete="off"
+            >
+            <span class="helper">Think about who actually needs what you're selling.</span>
+          </div>
+
+          <!-- What It Does -->
+          <div class="form-field field-full">
+            <label for="what_it_does">What does your business do?</label>
+            <textarea
+              id="what_it_does"
+              name="what_it_does"
+              required
+              maxlength="300"
+              rows="3"
+              placeholder="e.g. We visit people's homes and wash their dogs so owners don't have to go to a pet salon."
+            ></textarea>
+            <span class="helper">Describe it clearly enough that someone who's never heard of it gets it straight away.</span>
+          </div>
+
+          <!-- Problem It Solves -->
+          <div class="form-field field-full">
+            <label for="problem_it_solves">What problem does it solve?</label>
+            <input
+              type="text"
+              id="problem_it_solves"
+              name="problem_it_solves"
+              required
+              maxlength="200"
+              placeholder="e.g. Taking a dog to a salon is time-consuming and stressful"
+              autocomplete="off"
+            >
+            <span class="helper">Every great business fixes something. What's the pain you're removing?</span>
+          </div>
+
+          <div class="form-divider"></div>
+
+          <!-- Price -->
+          <div class="form-field">
+            <label for="price">How much will you charge? (£)</label>
+            <div class="price-wrap">
+              <span class="currency">£</span>
+              <input
+                type="number"
+                id="price"
+                name="price"
+                required
+                min="0.01"
+                step="0.01"
+                placeholder="e.g. 25"
+              >
+            </div>
+            <span class="helper">Per item sold or per visit/session — whatever makes sense for your business.</span>
+          </div>
+
+          <!-- Cost to Deliver -->
+          <div class="form-field">
+            <label for="cost_per_unit">What does it cost you to deliver each sale? (£)</label>
+            <div class="price-wrap">
+              <span class="currency">£</span>
+              <input
+                type="number"
+                id="cost_per_unit"
+                name="cost_per_unit"
+                required
+                min="0"
+                step="0.01"
+                placeholder="e.g. 8"
+              >
+            </div>
+            <span class="helper">Include materials, travel, supplies — anything you spend to complete one order or job.</span>
+          </div>
+
+          <!-- Purchase Frequency -->
+          <div class="form-field">
+            <label for="purchase_frequency">How often does the same customer buy?</label>
+            <select id="purchase_frequency" name="purchase_frequency" required>
+              <option value="" disabled selected>Choose one…</option>
+              <option value="once">Once (it's a one-off purchase)</option>
+              <option value="monthly">About once a month</option>
+              <option value="weekly">About once a week</option>
+              <option value="quarterly">A few times a year</option>
+              <option value="daily">Every day</option>
+            </select>
+            <span class="helper">Think about whether customers come back or just buy once.</span>
+          </div>
+
+          <!-- Why It's Different -->
+          <div class="form-field">
+            <label for="why_different">Why is yours better or different?</label>
+            <input
+              type="text"
+              id="why_different"
+              name="why_different"
+              required
+              maxlength="200"
+              placeholder="e.g. We come to your house, we're friendly with nervous dogs, and we're cheaper than salons"
+              autocomplete="off"
+            >
+            <span class="helper">What makes someone choose you over doing nothing — or over a competitor?</span>
+          </div>
+
+          <!-- Submit -->
+          <div class="submit-row">
+            <button type="submit" class="btn-primary">Run the numbers →</button>
+          </div>
+
+        </div><!-- /form-grid -->
+
+        <div id="error-box" class="error-box" role="alert"></div>
+
+      </form>
+    </div><!-- /form-section -->
+
+
+    <!-- ═══════════════════════════════════════════
+         LOADING STATE
+    ════════════════════════════════════════════ -->
+    <div id="loading" class="loading-screen" aria-live="polite">
+      <div class="spinner"></div>
+      <p class="loading-text">Assembling your customer panel...</p>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         REPORT SECTION (hidden until populated)
+    ════════════════════════════════════════════ -->
+    <div id="report" class="report-section">
+
+      <!-- Report Header -->
+      <div class="report-header fade-up">
+        <div class="biz-name"></div>
+        <div class="report-meta"></div>
+        <div class="idea-summary"></div>
+      </div>
+
+      <!-- Section 1: Verdict Card -->
+      <div class="verdict-card fade-up">
+        <div class="verdict-band tier-3"></div>
+        <div class="verdict-body">
+          <div class="stars-row tier-3">
+            <!-- stars injected by JS -->
+          </div>
+          <div class="verdict-headline"></div>
+          <div class="verdict-explanation"></div>
+          <ul class="verdict-nextsteps"></ul>
+        </div>
+      </div>
+
+      <!-- Section 2: Stats -->
+      <div class="stats-card fade-up">
+        <div class="section-title">What the numbers say</div>
+        <div class="stats-grid">
+          <div class="stat-box stat-buyers">
+            <div class="stat-value">—</div>
+            <div class="stat-label">Potential customers</div>
+            <div class="stat-sub">out of 1,000 surveyed</div>
+          </div>
+          <div class="stat-box stat-revenue">
+            <div class="stat-value">—</div>
+            <div class="stat-label">Projected annual revenue</div>
+            <div class="stat-sub">what you could take in per year</div>
+          </div>
+          <div class="stat-box stat-profit">
+            <div class="stat-value">—</div>
+            <div class="stat-label">Projected annual profit</div>
+            <div class="stat-sub">what you'd keep after costs</div>
+          </div>
+          <div class="stat-box stat-valuation">
+            <div class="stat-value">—</div>
+            <div class="stat-label">Business valuation</div>
+            <div class="stat-sub">what an investor might pay</div>
+          </div>
+        </div>
+        <p class="stats-disclaimer">
+          Based on a profit margin of <strong><span class="stat-margin-pct">—</span></strong>.
+          This doesn't include fixed costs like equipment or a website — your real profit might be lower.
+        </p>
+      </div>
+
+      <!-- Section 3: Bar Chart -->
+      <div class="chart-card fade-up">
+        <div class="section-title">How 1,000 customers reacted</div>
+        <div class="bar-chart">
+          <!-- bars injected by JS -->
+        </div>
+        <p class="chart-notes"></p>
+      </div>
+
+      <!-- Section 4: Quotes -->
+      <div class="quotes-card fade-up">
+        <div class="section-title">Voices from the panel</div>
+        <div class="quotes-grid">
+          <!-- quote cards injected by JS -->
+        </div>
+      </div>
+
+      <!-- Section 5: Panel thinks -->
+      <div class="panel-card fade-up">
+        <div class="section-title">What the panel thinks</div>
+        <div class="panel-block">
+          <div class="block-label">Your biggest strength</div>
+          <div class="block-text text-strength"></div>
+        </div>
+        <div class="panel-block">
+          <div class="block-label">The main challenge</div>
+          <div class="block-text text-challenge"></div>
+        </div>
+        <div class="panel-block encouragement-block">
+          <div class="block-text text-encouragement"></div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="report-footer fade-up">
+        <button id="reset-btn" class="btn-reset">Try again with a different idea →</button>
+        <p class="footer-credit">Built for Mowden Hall Entrepreneurs Club</p>
+      </div>
+
+    </div><!-- /report -->
+
+  </main>
+
+  <script src="assets/js/simulator.js"></script>
+</body>
+</html>
