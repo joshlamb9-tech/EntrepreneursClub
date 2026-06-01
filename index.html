@@ -6,8 +6,15 @@
   <title>Business Idea Simulator — Mowden Entrepreneurs Club</title>
   <meta name="description" content="Submit your business idea and find out what 1,000 customers really think. Get a full investor report with a valuation.">
   <link rel="stylesheet" href="assets/css/styles.css">
+  <!-- canvas-confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <!-- html2canvas for share card download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
+
+  <!-- Mute toggle (top-right, fixed) -->
+  <button id="mute-btn" title="Toggle sound" aria-label="Toggle sound">🔊</button>
 
   <header class="site-header">
     <div class="logo-bar">
@@ -177,6 +184,7 @@
     <div id="loading" class="loading-screen" aria-live="polite">
       <div class="spinner"></div>
       <p class="loading-text">Assembling your customer panel...</p>
+      <p class="loading-subtext">Simulating 1,000 customers — this takes about 10 seconds</p>
     </div>
 
 
@@ -271,13 +279,48 @@
 
       <!-- Footer -->
       <div class="report-footer fade-up">
-        <button id="reset-btn" class="btn-reset">Try again with a different idea →</button>
+        <div class="footer-buttons">
+          <button id="reset-btn" class="btn-reset">Try a different idea →</button>
+          <button id="download-btn" class="btn-download">⬇ Save my result</button>
+        </div>
         <p class="footer-credit">Built for Mowden Hall Entrepreneurs Club</p>
       </div>
 
     </div><!-- /report -->
 
   </main>
+
+  <!-- ═══════════════════════════════════════════
+       SHARE CARD (hidden, used for html2canvas snapshot)
+  ════════════════════════════════════════════ -->
+  <div id="share-card" aria-hidden="true">
+    <div class="share-card-inner">
+      <div class="share-branding">Mowden Hall Entrepreneurs Club</div>
+      <div class="share-biz-name" id="sc-biz-name"></div>
+      <div class="share-tagline" id="sc-tagline"></div>
+      <div class="share-stars" id="sc-stars"></div>
+      <div class="share-tier-name" id="sc-tier-name"></div>
+      <div class="share-stats">
+        <div class="share-stat">
+          <div class="share-stat-value" id="sc-buyers"></div>
+          <div class="share-stat-label">Potential customers</div>
+        </div>
+        <div class="share-stat">
+          <div class="share-stat-value" id="sc-revenue"></div>
+          <div class="share-stat-label">Annual revenue</div>
+        </div>
+        <div class="share-stat">
+          <div class="share-stat-value" id="sc-profit"></div>
+          <div class="share-stat-label">Annual profit</div>
+        </div>
+        <div class="share-stat">
+          <div class="share-stat-value" id="sc-valuation"></div>
+          <div class="share-stat-label">Business valuation</div>
+        </div>
+      </div>
+      <div class="share-footer">Investor Report · Simulated by AI</div>
+    </div>
+  </div>
 
   <script src="assets/js/simulator.js"></script>
 </body>

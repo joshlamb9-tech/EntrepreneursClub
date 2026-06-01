@@ -1,7 +1,7 @@
 /* ===================================================
    Entrepreneurs Club — Business Idea Simulator
    Front-end: form handling, fetch, valuation maths,
-   report rendering.
+   report rendering, sound, confetti, count-up, share.
    =================================================== */
 
 (function () {
@@ -171,6 +171,296 @@
     if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
   }
 
+  /* ═══════════════════════════════════════════════
+     DELIGHT FEATURE 1 — SOUND (Web Audio API)
+  ══════════════════════════════════════════════ */
+
+  var audioCtx = null;
+  var isMuted = false;
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+  }
+
+  function loadMuteState() {
+    try {
+      isMuted = localStorage.getItem('ec_muted') === '1';
+    } catch(e) { isMuted = false; }
+    var btn = document.getElementById('mute-btn');
+    if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
+  }
+
+  function saveMuteState() {
+    try { localStorage.setItem('ec_muted', isMuted ? '1' : '0'); } catch(e) {}
+    var btn = document.getElementById('mute-btn');
+    if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
+  }
+
+  /* Drumroll: repeated noise bursts during loading */
+  var drumrollNodes = [];
+
+  function startDrumroll() {
+    if (isMuted) return;
+    var ctx;
+    try { ctx = getAudioCtx(); } catch(e) { return; }
+
+    stopDrumroll();
+
+    function oneHit(when) {
+      var bufSize = ctx.sampleRate * 0.04;
+      var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.4));
+      }
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      var filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 180;
+      filter.Q.value = 1.2;
+
+      var gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.32, when);
+      gain.gain.exponentialRampToValueAtTime(0.001, when + 0.08);
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(when);
+      drumrollNodes.push(src);
+    }
+
+    /* Schedule hits for up to 12 seconds, accelerating slightly */
+    var now = ctx.currentTime;
+    var t = now;
+    var interval = 0.22;
+    for (var i = 0; i < 60; i++) {
+      oneHit(t);
+      interval = Math.max(0.08, interval - 0.002);
+      t += interval;
+    }
+  }
+
+  function stopDrumroll() {
+    drumrollNodes.forEach(function(n) { try { n.stop(); } catch(e){} });
+    drumrollNodes = [];
+  }
+
+  function playFanfare(tier) {
+    if (isMuted) return;
+    var ctx;
+    try { ctx = getAudioCtx(); } catch(e) { return; }
+
+    stopDrumroll();
+
+    /* Notes for each tier — higher tier = richer chord resolution */
+    var sequences = {
+      1: [{ f: 220, d: 0.35, t: 0 }, { f: 196, d: 0.5, t: 0.38 }],
+      2: [{ f: 262, d: 0.25, t: 0 }, { f: 294, d: 0.35, t: 0.28 }, { f: 330, d: 0.5, t: 0.58 }],
+      3: [
+        { f: 330, d: 0.2, t: 0 }, { f: 392, d: 0.2, t: 0.22 },
+        { f: 440, d: 0.3, t: 0.44 }, { f: 494, d: 0.6, t: 0.72 },
+      ],
+      4: [
+        { f: 392, d: 0.18, t: 0 }, { f: 440, d: 0.18, t: 0.2 },
+        { f: 523, d: 0.18, t: 0.4 }, { f: 587, d: 0.18, t: 0.6 },
+        { f: 659, d: 0.5, t: 0.82 }, { f: 523, d: 0.5, t: 0.84 },
+      ],
+      5: [
+        { f: 523, d: 0.15, t: 0 }, { f: 659, d: 0.15, t: 0.17 },
+        { f: 784, d: 0.15, t: 0.34 }, { f: 1047, d: 0.4, t: 0.52 },
+        { f: 784, d: 0.25, t: 0.55 }, { f: 1047, d: 0.65, t: 0.82 },
+        /* final chord: root + fifth */
+        { f: 523, d: 0.7, t: 0.82 }, { f: 659, d: 0.7, t: 0.83 },
+      ],
+    };
+
+    var notes = sequences[tier] || sequences[3];
+    var now = ctx.currentTime + 0.05;
+
+    notes.forEach(function(note) {
+      var osc = ctx.createOscillator();
+      osc.type = (tier >= 4) ? 'triangle' : 'sine';
+      osc.frequency.value = note.f;
+
+      var gain = ctx.createGain();
+      var start = now + note.t;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.22, start + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + note.d);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + note.d + 0.01);
+    });
+  }
+
+  /* ═══════════════════════════════════════════════
+     DELIGHT FEATURE 2 — COUNT-UP ANIMATION
+  ══════════════════════════════════════════════ */
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function countUp(el, targetValue, formatFn, duration) {
+    /* Respect prefers-reduced-motion */
+    var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      el.textContent = formatFn(targetValue);
+      return;
+    }
+
+    var start = null;
+    var startValue = 0;
+
+    function step(timestamp) {
+      if (!start) start = timestamp;
+      var elapsed = timestamp - start;
+      var progress = Math.min(elapsed / duration, 1);
+      var eased = easeOut(progress);
+      var current = startValue + (targetValue - startValue) * eased;
+      el.textContent = formatFn(current);
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = formatFn(targetValue);
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  function formatCount(n) {
+    return Math.round(n).toLocaleString('en-GB');
+  }
+
+  function formatCurrencyCount(n) {
+    return '£' + Math.round(n).toLocaleString('en-GB');
+  }
+
+  function formatCurrencyRoundedCount(n) {
+    /* Mirrors formatCurrency but works on partial values during count-up */
+    if (n >= 1000000) {
+      return '£' + Math.round(n).toLocaleString('en-GB');
+    }
+    return '£' + Math.round(n).toLocaleString('en-GB');
+  }
+
+  /* ═══════════════════════════════════════════════
+     DELIGHT FEATURE 3 — CONFETTI
+  ══════════════════════════════════════════════ */
+
+  function fireConfetti() {
+    if (typeof confetti !== 'function') return;
+
+    var colors = ['#a855f7', '#ec4899', '#6B21A8', '#fde68a', '#ffffff', '#7C3AED'];
+
+    /* Centre burst */
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.55 },
+      colors: colors,
+      scalar: 1.1,
+    });
+
+    /* Left */
+    setTimeout(function() {
+      confetti({
+        particleCount: 60,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.6 },
+        colors: colors,
+        scalar: 0.9,
+      });
+    }, 150);
+
+    /* Right */
+    setTimeout(function() {
+      confetti({
+        particleCount: 60,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.6 },
+        colors: colors,
+        scalar: 0.9,
+      });
+    }, 300);
+  }
+
+  /* ═══════════════════════════════════════════════
+     DELIGHT FEATURE 4 — SHARE CARD DOWNLOAD
+  ══════════════════════════════════════════════ */
+
+  /* Populated when report renders */
+  var _shareData = null;
+
+  function populateShareCard(bizName, summary, verdict, calc) {
+    var nameEl = document.getElementById('sc-biz-name');
+    var tagEl  = document.getElementById('sc-tagline');
+    var starsEl = document.getElementById('sc-stars');
+    var tierEl  = document.getElementById('sc-tier-name');
+    var buyersEl   = document.getElementById('sc-buyers');
+    var revenueEl  = document.getElementById('sc-revenue');
+    var profitEl   = document.getElementById('sc-profit');
+    var valuationEl = document.getElementById('sc-valuation');
+
+    if (!nameEl) return;
+
+    nameEl.textContent = bizName;
+    tagEl.textContent  = summary || '';
+    tierEl.textContent = verdict.tierName;
+
+    starsEl.innerHTML = '';
+    for (var i = 0; i < 5; i++) {
+      var s = document.createElement('span');
+      s.className = 'share-star' + (i < verdict.tier ? ' lit' : '');
+      s.textContent = '★';
+      starsEl.appendChild(s);
+    }
+
+    buyersEl.textContent   = calc.addressableBuyers.toLocaleString('en-GB');
+    revenueEl.textContent  = formatCurrencyExact(calc.annualRevenue);
+    profitEl.textContent   = formatCurrencyExact(calc.annualProfit);
+    valuationEl.textContent = formatCurrency(calc.valuation);
+
+    _shareData = { bizName: bizName };
+  }
+
+  function downloadShareCard() {
+    var card = document.getElementById('share-card');
+    if (!card || typeof html2canvas !== 'function') return;
+
+    /* Temporarily position card visibly off-screen but renderable */
+    card.style.left = '-9999px';
+    card.style.top = '0px';
+
+    html2canvas(card, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    }).then(function(canvas) {
+      var link = document.createElement('a');
+      var slug = (_shareData && _shareData.bizName)
+        ? _shareData.bizName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        : 'investor-report';
+      link.download = slug + '-investor-report.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }).catch(function(err) {
+      console.warn('Share card download failed:', err);
+    });
+  }
+
   /* ─── RENDER REPORT ───────────────────────────── */
   function renderReport(simulation, formData, calc, verdict) {
     var report = document.getElementById('report');
@@ -186,7 +476,7 @@
     bandEl.className = 'verdict-band tier-' + verdict.tier;
     bandEl.textContent = verdict.tierName;
 
-    /* -- Stars row (build empty first, fill one-by-one) -- */
+    /* -- Stars row (build empty first, fill one-by-one in animateReportIn) -- */
     var starsRow = report.querySelector('.stars-row');
     starsRow.className = 'stars-row tier-' + verdict.tier;
     starsRow.innerHTML = '';
@@ -205,11 +495,11 @@
       return '<li>' + escHtml(s) + '</li>';
     }).join('');
 
-    /* -- Stats -- */
-    report.querySelector('.stat-buyers .stat-value').textContent = calc.addressableBuyers.toLocaleString('en-GB');
-    report.querySelector('.stat-revenue .stat-value').textContent = formatCurrencyExact(calc.annualRevenue);
-    report.querySelector('.stat-profit .stat-value').textContent = formatCurrencyExact(calc.annualProfit);
-    report.querySelector('.stat-valuation .stat-value').textContent = formatCurrency(calc.valuation);
+    /* -- Stats: set placeholders (count-up fills them in animateReportIn) -- */
+    report.querySelector('.stat-buyers .stat-value').textContent   = '0';
+    report.querySelector('.stat-revenue .stat-value').textContent  = '£0';
+    report.querySelector('.stat-profit .stat-value').textContent   = '£0';
+    report.querySelector('.stat-valuation .stat-value').textContent = '£0';
     report.querySelector('.stat-margin-pct').textContent = Math.round(calc.marginPct * 100) + '%';
 
     /* -- Bar chart -- */
@@ -249,10 +539,13 @@
     report.querySelector('.text-strength').textContent  = simulation.top_strength;
     report.querySelector('.text-challenge').textContent = simulation.main_challenge;
     report.querySelector('.text-encouragement').textContent = simulation.encouragement;
+
+    /* -- Share card -- */
+    populateShareCard(formData.business_name, simulation.idea_summary, verdict, calc);
   }
 
   /* ─── ANIMATE REPORT IN ───────────────────────── */
-  function animateReportIn() {
+  function animateReportIn(calc, verdict) {
     var sections = document.querySelectorAll('#report .fade-up');
     sections.forEach(function (el, i) {
       setTimeout(function () {
@@ -266,9 +559,52 @@
       stars.forEach(function (star, i) {
         setTimeout(function () {
           star.classList.add('filled');
-        }, i * 150);
+        }, i * 180);
       });
+
+      /* After last star fills, fire fanfare and (if tier 4/5) confetti */
+      var totalStarDelay = (verdict.tier - 1) * 180;
+      var fanfareDelay = totalStarDelay + 200;
+
+      setTimeout(function() {
+        playFanfare(verdict.tier);
+      }, fanfareDelay);
+
+      if (verdict.tier >= 4) {
+        setTimeout(function() {
+          fireConfetti();
+        }, fanfareDelay + 300);
+      }
     }, 300);
+
+    /* Count-up stats */
+    setTimeout(function () {
+      var DURATION = 1200;
+      countUp(
+        document.querySelector('#report .stat-buyers .stat-value'),
+        calc.addressableBuyers,
+        formatCount,
+        DURATION
+      );
+      countUp(
+        document.querySelector('#report .stat-revenue .stat-value'),
+        calc.annualRevenue,
+        formatCurrencyCount,
+        DURATION
+      );
+      countUp(
+        document.querySelector('#report .stat-profit .stat-value'),
+        calc.annualProfit,
+        formatCurrencyCount,
+        DURATION
+      );
+      countUp(
+        document.querySelector('#report .stat-valuation .stat-value'),
+        calc.valuation,
+        formatCurrencyRoundedCount,
+        DURATION
+      );
+    }, 600);
 
     /* Fill bars */
     setTimeout(function () {
@@ -298,8 +634,30 @@
     var errorBox     = document.getElementById('error-box');
     var reportEl     = document.getElementById('report');
     var resetBtn     = document.getElementById('reset-btn');
+    var downloadBtn  = document.getElementById('download-btn');
+    var muteBtn      = document.getElementById('mute-btn');
 
-    if (!form) return; // not on the right page
+    if (!form) return;
+
+    /* Load mute state */
+    loadMuteState();
+
+    /* Mute toggle */
+    if (muteBtn) {
+      muteBtn.addEventListener('click', function() {
+        isMuted = !isMuted;
+        saveMuteState();
+        /* Resume AudioContext if needed (browser autoplay policy) */
+        if (!isMuted && audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      });
+    }
+
+    /* Download button */
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', downloadShareCard);
+    }
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -325,6 +683,13 @@
       loadingEl.classList.add('active');
       startLoading(loadingEl);
 
+      /* Resume AudioContext (browser autoplay policy requires user gesture first) */
+      if (!isMuted) {
+        var ctx;
+        try { ctx = getAudioCtx(); if (ctx.state === 'suspended') ctx.resume(); } catch(e) {}
+        setTimeout(function() { startDrumroll(); }, 100);
+      }
+
       /* Call edge function */
       fetch(FUNCTION_URL, {
         method: 'POST',
@@ -347,6 +712,7 @@
       })
       .then(function (data) {
         stopLoading();
+        stopDrumroll();
         loadingEl.classList.remove('active');
 
         var simulation = data.simulation;
@@ -366,12 +732,13 @@
         /* Render + show */
         renderReport(simulation, formData, calc, verdict);
         reportEl.classList.add('active');
-        animateReportIn();
+        animateReportIn(calc, verdict);
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
       })
       .catch(function (err) {
         stopLoading();
+        stopDrumroll();
         loadingEl.classList.remove('active');
         formSection.style.display = '';
         errorBox.textContent = err.message || 'Something went wrong — try again.';
