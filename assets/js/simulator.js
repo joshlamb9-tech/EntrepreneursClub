@@ -11,6 +11,25 @@
   var SUPABASE_URL = 'https://jkbfvfoepmhwyzhleifh.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_q9qOX43dA9SoxZ3Bq2p2Pw_c-GUaYw_';
   var FUNCTION_URL = SUPABASE_URL + '/functions/v1/simulate-business';
+  var ANALYTICS_URL = SUPABASE_URL + '/rest/v1/analytics_events';
+
+  /* ─── ANALYTICS BEACON ────────────────────────── */
+  /* Fire-and-forget. No personal data. No retries. Silent on failure. */
+  function trackEvent(eventType) {
+    try {
+      fetch(ANALYTICS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({ event_type: eventType }),
+        keepalive: true,
+      }).catch(function () { /* silent */ });
+    } catch (e) { /* silent */ }
+  }
 
   /* ─── SEGMENT WEIGHTS ─────────────────────────── */
   var SEGMENT_WEIGHTS = { S1:15, S2:20, S3:12, S4:8, S5:10, S6:10, S7:10, S8:7, S9:8 };
@@ -729,6 +748,9 @@
         );
         var verdict = getVerdict(calc.annualProfit);
 
+        /* Track completion (anonymous — no content, no identity) */
+        trackEvent('simulation_complete');
+
         /* Render + show */
         renderReport(simulation, formData, calc, verdict);
         reportEl.classList.add('active');
@@ -760,6 +782,9 @@
   }
 
   /* ─── BOOT ────────────────────────────────────── */
+  /* Page visit beacon — fires once on load */
+  trackEvent('page_visit');
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

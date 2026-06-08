@@ -3,3 +3,8 @@
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/simulate-business/index.ts"
+
+[functions.get-stats]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-stats/index.ts"
